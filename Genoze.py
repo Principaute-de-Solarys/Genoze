@@ -323,10 +323,14 @@ async def deop(interaction: discord.Interaction, user: discord.User):
 
     await interaction.edit_original_response(content=f"{user.global_name} n'est désormais plus administrateur.rice.")
 
-@bot.tree.command(name="guild_ban", description="Bannit localement un utilisateur.")
+@bot.tree.command(name="guild_ban", description="[ADMIN SERV] Bannit localement un utilisateur.")
 @has_permissions(administrator=True)
 @app_commands.describe(user="L'utilisateur à bannir.")
-async def guild_ban(interaction: discord.Interaction, user: discord.User):    
+async def guild_ban(interaction: discord.Interaction, user: discord.User):
+    if not interaction.user.guild_permissions.ban_members:
+        await interaction.response.send_message("Seul une personne ayant les permissions de bannir quelqu'un peut utiliser cette commande.", ephemeral=True)
+        return
+
     if interaction.user == user:
         await interaction.response.send_message("Vous ne pouvez pas vous bannir.")
         return
@@ -349,10 +353,14 @@ async def guild_ban(interaction: discord.Interaction, user: discord.User):
 
     await interaction.edit_original_response(content=f"{user.global_name} est désormais banni.e ici.")
 
-@bot.tree.command(name="guild_unban", description="Débannit un utilisateur banni localement.")
+@bot.tree.command(name="guild_unban", description="[ADMIN SERV] Débannit un utilisateur banni localement.")
 @has_permissions(administrator=True)
 @app_commands.describe(user="L'utilisateur à débannir.")
-async def guild_unban(interaction: discord.Interaction, user: discord.User):    
+async def guild_unban(interaction: discord.Interaction, user: discord.User):
+    if not interaction.user.guild_permissions.ban_members:
+        await interaction.response.send_message("Seul une personne ayant les permissions de bannir quelqu'un peut utiliser cette commande.", ephemeral=True)
+        return
+    
     await interaction.response.send_message(f"Débannit l'utilisateur {user.global_name} du serveur...")
 
     if not await check_member_of(str(user.id), server_bans.keys()):
