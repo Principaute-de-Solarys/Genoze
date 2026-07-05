@@ -361,7 +361,7 @@ async def delete_message(interaction: discord.Interaction, message_id: str):
                 f.write(json.dumps(messages_list))
                 f.close()
 
-                interaction.edit_original_response(content="Le message a été supprimé.")
+                await interaction.edit_original_response(content="Le message a été supprimé.")
 
 @bot.tree.command(name="guild_ban", description="[ADMIN SERV] Bannit localement un utilisateur.")
 @has_permissions(administrator=True)
