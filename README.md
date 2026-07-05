@@ -29,6 +29,7 @@ Le bot utilise exclusivement les commandes slash.
 *   `/unban [utilisateur]` : Débannit un utilisateur du réseau global.
 *   `/op [utilisateur]` : Donne les droits d'administration Genoze à un utilisateur.
 *   `/deop [utilisateur]` : Retire les privilèges d'administration Genoze.
+*   `/delete_message [message_id]` : Supprime un message.
 
 ### Commandes Administrateurs Serveur (Local)
 *   `/guild_ban [utilisateur]` : Bannit localement un utilisateur pour qu'il n'apparaisse plus sur votre serveur.

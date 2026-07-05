@@ -37,6 +37,8 @@ channel_list = {}
 facts = []
 curFact = -1
 
+bot_id = 1479885378985918515
+
 thumbsup = "\N{THUMBS UP SIGN}"
 lol = "😂"
 
@@ -136,7 +138,7 @@ async def help(interaction: discord.Interaction):
     embed = discord.Embed(
         title="Aide pour Genoze",
         description="-# [ADMIN GENOZE] : Il s'agit d'une commande que seuls les administrateurs Genoze peuvent utiliser.\n-# [ADMIN SERV] : Il ss'agit d'une commande réservée aux administrateurs des serveurs.\n\nVoici la liste des commandes disponibles :",
-        color=discord.Color.from_rgb(15, 5, 107)
+        color=discord.Color.from_rgb(7, 106, 68)
     )
    
     embed.add_field(name="/help", value="Vous donne ce message.", inline=False)
@@ -148,10 +150,11 @@ async def help(interaction: discord.Interaction):
     embed.add_field(name="[ADMIN GENOZE] /unban user:[L'utilisateur à débannir]", value="Débannit un utilisateur de Genoze.", inline=False)
     embed.add_field(name="[ADMIN GENOZE] /op user:[L'utilisateur à rendre administrateur]", value="Rend un utilisateur administrateur.", inline=False)
     embed.add_field(name="[ADMIN GENOZE] /deop user:[L'utilisateur à dérank]", value="Enlève le rang d'administrateur à un utilisateur.", inline=False)
+    embed.add_field(name="[ADMIN GENOZE] /delete_message message_id:[L'identifiant du message à supprimer]", value="Supprime un message.", inline=False)
     embed.add_field(name="[ADMIN SERV] /guild_ban user:[L'utilisateur à bannir]", value="Bannit localement un utilisateur.", inline=False)
     embed.add_field(name="[ADMIN SERV] /guild_unban user:[L'utilisateur à débannir]", value="Débannit un utilisateur banni localement.", inline=False)
    
-    embed.set_footer(text="Version : 0.1\nSi vous voulez contribuer au développement de Genoze, contactez Timoh de Solarys.")
+    embed.set_footer(text="Version : 0.1.1\nSi vous voulez contribuer au développement de Genoze, contactez Timoh de Solarys.")
    
     await interaction.response.send_message(embed=embed)
 
@@ -160,7 +163,7 @@ async def add_bot(interaction: discord.Interaction):
     embed = discord.Embed(
         title="Ajoute Genoze",
         description="Clique sur le lien ci-dessous pour ajouter le bot à ton serveur Discord.",
-        color=discord.Color.from_rgb(15, 5, 107)
+        color=discord.Color.from_rgb(7, 106, 68)
     )
     embed.add_field(
         name="Lien d'invitation",
@@ -322,6 +325,44 @@ async def deop(interaction: discord.Interaction, user: discord.User):
 
     await interaction.edit_original_response(content=f"{user.global_name} n'est désormais plus administrateur.rice.")
 
+@bot.tree.command(name="delete_message", description="[ADMIN GENOZE] Supprime un message Genoze.")
+@has_permissions(administrator=True)
+@app_commands.describe(message_id="Le message à supprimer.")
+async def delete_message(interaction: discord.Interaction, message_id: str):
+    mid = int(message_id)
+
+    if not await check_member_of(interaction.user.id, admin_list):
+        await interaction.response.send_message("Seul un administrateur Genoze peut exécuter cette commande.", ephemeral=True)
+        return
+    
+    await interaction.response.send_message("Supprime le message...")
+    
+    message = await interaction.channel.fetch_message(mid)
+    if type(message) == discord.Message:
+        if message.author.id == bot_id:
+            if len(message.embeds) == 1 and message.embeds[0].author.name == "Genoze":
+                message_idx = 0
+                for i in range(len(messages_list)):
+                    if await check_member_of(mid, messages_list[i]["messages_published"]):
+                        message_idx = i
+                        break
+                
+                for i in range(len(messages_list[message_idx]["servers_published"])):
+                    server_id = messages_list[message_idx]["servers_published"][i]
+                    channel_id = channel_list[server_id]
+                    server = await bot.fetch_guild(server_id)
+                    channel = await server.fetch_channel(channel_id)
+                    bot_message = await channel.fetch_message(messages_list[message_idx]["messages_published"][i])
+                    await bot_message.delete()
+
+                messages_list.pop(message_idx)
+
+                f = open("messages.json", "w")
+                f.write(json.dumps(messages_list))
+                f.close()
+
+                interaction.edit_original_response(content="Le message a été supprimé.")
+
 @bot.tree.command(name="guild_ban", description="[ADMIN SERV] Bannit localement un utilisateur.")
 @has_permissions(administrator=True)
 @app_commands.describe(user="L'utilisateur à bannir.")
@@ -401,7 +442,7 @@ async def on_message(message: discord.Message):
                 embed = discord.Embed(
                     title=message.author.display_name,
                     description=f"-# *{message.author.name} ({message.author.id})*\n---\n{message.content}",
-                    color=discord.Color.from_rgb(15, 5, 107),
+                    color=discord.Color.from_rgb(7, 106, 68),
                     timestamp=datetime.datetime.now(tz.gettz("Europe/Paris"))
                 )
                 embed.set_author(
@@ -427,7 +468,7 @@ async def on_message(message: discord.Message):
                 needCheck = False
                 if type(message.reference) is discord.MessageReference:
                     reply = message.reference.resolved
-                    if reply.author.id == 1479885378985918515:
+                    if reply.author.id == bot_id:
                         reply_msgs = reply.embeds[0].description.split("\n---\n")
                         reply_msg = reply_msgs[len(reply_msgs) - 1]
                         embed.description = f"-# *{message.author.name} ({message.author.id})*\n---\n{reply.embeds[0].title} (dans {reply.embeds[0].footer.text} à {reply.embeds[0].timestamp.strftime('%d/%m/%Y')}, {(reply.embeds[0].timestamp.hour + 2) % 24}:{reply.embeds[0].timestamp.minute}) : \"{reply_msg}\"\n---\n{message.content}"
@@ -457,7 +498,7 @@ async def on_message(message: discord.Message):
 
 @bot.event
 async def on_raw_reaction_add(payLoad: discord.RawReactionActionEvent):
-    if payLoad.user_id != 1479885378985918515:
+    if payLoad.user_id != bot_id:
         if str(payLoad.emoji) == thumbsup or str(payLoad.emoji) == lol:
             message_idx = 0
             for i in range(len(messages_list)):
@@ -471,7 +512,7 @@ async def on_raw_reaction_add(payLoad: discord.RawReactionActionEvent):
             embed = discord.Embed(
                 title=msg.embeds[0].title,
                 description=msg.embeds[0].description,
-                color=discord.Color.from_rgb(15, 5, 107),
+                color=discord.Color.from_rgb(7, 106, 68),
                 timestamp=msg.embeds[0].timestamp
             )
             embed.set_author(name=msg.embeds[0].author.name)
@@ -508,7 +549,7 @@ async def on_raw_reaction_add(payLoad: discord.RawReactionActionEvent):
 
 @bot.event
 async def on_raw_reaction_remove(payLoad: discord.RawReactionActionEvent):
-    if payLoad.user_id != 1479885378985918515:
+    if payLoad.user_id != bot_id:
         if str(payLoad.emoji) == thumbsup or str(payLoad.emoji) == lol:
             message_idx = 0
             for i in range(len(messages_list)):
@@ -522,7 +563,7 @@ async def on_raw_reaction_remove(payLoad: discord.RawReactionActionEvent):
             embed = discord.Embed(
                 title=msg.embeds[0].title,
                 description=msg.embeds[0].description,
-                color=discord.Color.from_rgb(15, 5, 107),
+                color=discord.Color.from_rgb(7, 106, 68),
                 timestamp=msg.embeds[0].timestamp
             )
             embed.set_author(name=msg.embeds[0].author.name)
