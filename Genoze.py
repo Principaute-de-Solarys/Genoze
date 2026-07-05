@@ -141,7 +141,6 @@ async def help(interaction: discord.Interaction):
    
     embed.add_field(name="/help", value="Vous donne ce message.", inline=False)
     embed.add_field(name="/ping", value="Permet de tester la présence du bot.", inline=False)
-    embed.add_field(name="/infos", value="Donne l'ensemble des annonces du jour.", inline=False)
     embed.add_field(name="/add_bot", value="Vous donne un lien permettant d'ajouter Genoze sur votre serveur. Il vous faudra un administrateur de Genoze pour installer le bot.", inline=False)
     embed.add_field(name="[ADMIN GENOZE] /register_channel (channel:[Salon à enregistrer])", value="Enregistre un salon Genoze.", inline=False)
     embed.add_field(name="[ADMIN GENOZE] /unregister_channel", value="Supprime un salon Genoze.", inline=False)
