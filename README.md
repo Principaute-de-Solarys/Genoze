@@ -5,7 +5,8 @@ Genoze est un bot Discord d'inter-communication développé en Python par Timoh 
 ## Fonctionnalités principales
 
 *   **Inter-communication Discord synchrone :** Chaque message envoyé dans un salon Genoze enregistré est automatiquement mis en forme dans un Embed élégant et retransmis en temps réel sur tous les autres serveurs connectés.
-*   **Système de Réponses :** Vous pouvez répondre aux messages du bot pour répondre au contenu !.
+*   **Système de réponses :** Vous pouvez répondre aux messages du bot pour répondre au contenu.
+*   **Système de suppression :** Vous pouvez supprimer vos messages.
 *   **Réactions synchronisées :** Les réactions ajoutées ou retirées sur un serveur sont répercutées instantanément sur l'ensemble des serveurs du réseau.
 *   **Signalement (Modération) :** Un bouton "Signaler" attaché à chaque message permet aux utilisateurs d'ouvrir un formulaire pour envoyer une alerte directement aux administrateurs de Genoze avec le contexte du message.
 *   **Modération à double niveau :**
@@ -20,6 +21,7 @@ Le bot utilise exclusivement les commandes slash.
 ### Commandes Publiques
 *   `/help` : Affiche la liste des commandes et les informations de version.
 *   `/ping` : Teste la présence du bot.
+*   `/leaderboard` : Affiche le classement des réactions.
 *   `/add_bot` : Fournit le lien d'invitation OAuth2 du bot.
 
 ### Commandes Administrateurs Genoze (Global)

@@ -31,6 +31,7 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 admin_list = []
 ban_list = []
 messages_list = []
+leaderboard = {}
 server_bans = {}
 channel_list = {}
 
@@ -68,10 +69,41 @@ class Report(ui.Modal, title="Formulaire de signalement Genoze"):
 
         await interaction.response.send_message(content="Votre signalement a bien été envoyé !", ephemeral=True)
 
-class ReportBtn(discord.ui.View):
+class MessageBtns(discord.ui.View):
     @discord.ui.button(label="Signaler", style=discord.ButtonStyle.red)
-    async def report(self, interaction: discord.Interaction, button: discord.ui.Button):
+    async def reportbtn(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_modal(Report(custom_id=str(interaction.message.id)))
+
+    @discord.ui.button(label="Supprimer", style=discord.ButtonStyle.gray)
+    async def deletebtn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        og_id = int(interaction.message.embeds[0].description.split("(")[1].split(")")[0])
+        if interaction.user.id != og_id and not await check_member_of(interaction.user.id, admin_list):
+            await interaction.response.send_message(content="Vous ne pouvez pas supprimer un message qui ne vous appartient pas.", ephemeral=True)
+            return
+        
+        await interaction.response.send_message(content="Supprime le message...", ephemeral=True)
+    
+        message_idx = 0
+        for i in range(len(messages_list)):
+            if await check_member_of(interaction.message.id, messages_list[i]["messages_published"]):
+                message_idx = i
+                break
+        
+        for i in range(len(messages_list[message_idx]["servers_published"])):
+            server_id = messages_list[message_idx]["servers_published"][i]
+            channel_id = channel_list[server_id]
+            server = await bot.fetch_guild(server_id)
+            channel = await server.fetch_channel(channel_id)
+            bot_message = await channel.fetch_message(messages_list[message_idx]["messages_published"][i])
+            await bot_message.delete()
+
+        messages_list.pop(message_idx)
+
+        f = open("messages.json", "w")
+        f.write(json.dumps(messages_list))
+        f.close()
+
+        await interaction.edit_original_response(content="Le message a été supprimé.")
 
 async def check_member_of(user_id: int, list: list):
     if user_id in list:
@@ -114,6 +146,12 @@ async def on_ready():
     facts = k.readlines()
     k.close()
 
+    for msg in messages_list:
+        if leaderboard.get(msg["author_id"]) == None:
+            leaderboard[msg["author_id"]] = [msg["likes"], msg["lol"]]
+        else:
+            leaderboard[msg["author_id"]] = [leaderboard[msg["author_id"]][0] + msg["likes"], leaderboard[msg["author_id"]][1] + msg["lol"]]
+
     update_status.start()
 
     print(f'Bot connecté en tant que {bot.user}')
@@ -143,6 +181,7 @@ async def help(interaction: discord.Interaction):
    
     embed.add_field(name="/help", value="Vous donne ce message.", inline=False)
     embed.add_field(name="/ping", value="Permet de tester la présence du bot.", inline=False)
+    embed.add_field(name="/leaderboard", value="Donne le classement des likes et des lol.", inline=False)
     embed.add_field(name="/add_bot", value="Vous donne un lien permettant d'ajouter Genoze sur votre serveur. Il vous faudra un administrateur de Genoze pour installer le bot.", inline=False)
     embed.add_field(name="[ADMIN GENOZE] /register_channel (channel:[Salon à enregistrer])", value="Enregistre un salon Genoze.", inline=False)
     embed.add_field(name="[ADMIN GENOZE] /unregister_channel", value="Supprime un salon Genoze.", inline=False)
@@ -154,7 +193,7 @@ async def help(interaction: discord.Interaction):
     embed.add_field(name="[ADMIN SERV] /guild_ban user:[L'utilisateur à bannir]", value="Bannit localement un utilisateur.", inline=False)
     embed.add_field(name="[ADMIN SERV] /guild_unban user:[L'utilisateur à débannir]", value="Débannit un utilisateur banni localement.", inline=False)
    
-    embed.set_footer(text="Version : 0.1.1\nSi vous voulez contribuer au développement de Genoze, contactez Timoh de Solarys.")
+    embed.set_footer(text="Version : 0.2\nSi vous voulez contribuer au développement de Genoze, contactez Timoh de Solarys.")
    
     await interaction.response.send_message(embed=embed)
 
@@ -171,6 +210,68 @@ async def add_bot(interaction: discord.Interaction):
         inline=False
     )
     await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(name="leaderboard", description="Fait un classement des 5 premières personnes ayant le plus de réactions.")
+async def leaderboardfn(interaction: discord.Interaction):
+    await interaction.response.send_message("Charge les données du leaderboard...")
+
+    embed = discord.Embed(
+        title="Classement Genoze",
+        description="## Likes :\n",
+        color=discord.Color.from_rgb(7, 106, 68)
+    )
+
+    likesLeaderboard = {}
+    lolLeaderboard = {}
+    posidx = 1
+    maxId = 5
+    posUserLikes = 0
+    posUserLol = 0
+
+    if len(leaderboard) < maxId:
+        maxId = len(leaderboard)
+
+    for k, v in leaderboard.items():
+        likesLeaderboard[k] = v[0]
+        lolLeaderboard[k] = v[1]
+
+    likesLeaderboard = dict(sorted(likesLeaderboard.items(), key=lambda item: item[1], reverse=True))
+    lolLeaderboard = dict(sorted(lolLeaderboard.items(), key=lambda item: item[1], reverse=True))
+
+    for k, v in likesLeaderboard.items():
+        curUser = await bot.fetch_user(k)
+        if k == interaction.user.id:
+            embed.description = f"{embed.description}{posidx}. **{curUser.mention} (vous) : {v} likes**\n"
+            posUserLikes = posidx
+        elif posidx < 6:
+            embed.description = f"{embed.description}{posidx}. {curUser.mention} : {v} likes\n"
+        elif posidx == 6:
+            embed.description = f"{embed.description}\n"
+
+        posidx += 1
+
+        if posidx > maxId and (posUserLikes != 0 or not await check_member_of(interaction.user.id, likesLeaderboard.keys())):
+            break
+        
+    posidx = 1
+    embed.description = f"{embed.description}## Lol :\n"
+
+    for k, v in lolLeaderboard.items():
+        curUser = await bot.fetch_user(k)
+        if k == interaction.user.id:
+            embed.description = f"{embed.description}{posidx}. **{curUser.mention} (vous) : {v} lol**\n"
+            posUserLol = posidx
+        elif posidx < 6:
+            embed.description = f"{embed.description}{posidx}. {curUser.mention} : {v} lol\n"
+        elif posidx == 6:
+            embed.description = f"{embed.description}\n"
+        
+        posidx += 1
+
+        if posidx > maxId and (posUserLol != 0 or not await check_member_of(interaction.user.id, lolLeaderboard.keys())):
+            break
+
+    await interaction.edit_original_response(content="", embed=embed)
 
 @bot.tree.command(name="register_channel", description="[ADMIN GENOZE] Enregistre un salon Genoze.")
 @has_permissions(administrator=True)
@@ -460,7 +561,7 @@ async def on_message(message: discord.Message):
                             embed.set_image(url=i.url)
                             firstImage = True
                             continue
-                        embed.add_field(name=i.title, value=i.url, inline=False)
+                        embed.add_field(name=i.filename, value=i.url, inline=False)
                 else:
                     await message.delete()
                 embed.add_field(name="Likes", value="0", inline=True)
@@ -481,7 +582,7 @@ async def on_message(message: discord.Message):
                         if await check_member_of(server_id, server_bans[str(message.author.id)]):
                             await message.author.send(content=f"Votre [message]({message.channel.jump_url}) n'a pas été transféré sur {server.name} car vous y êtes banni.e.")
                             continue
-                    bot_message = await channel.send(embed=embed, view=ReportBtn())
+                    bot_message = await channel.send(embed=embed, view=MessageBtns(timeout=None))
                     await bot_message.add_reaction(thumbsup)
                     await bot_message.add_reaction(lol)
                     message_data["servers_published"].append(server_id)
@@ -518,6 +619,8 @@ async def on_raw_reaction_add(payLoad: discord.RawReactionActionEvent):
             embed.set_author(name=msg.embeds[0].author.name)
             embed.set_footer(text=msg.embeds[0].footer.text, icon_url=msg.embeds[0].footer.icon_url)
             embed.set_thumbnail(url=msg.embeds[0].thumbnail.url)
+            if msg.embeds[0].image.url != None:
+                embed.set_image(url=msg.embeds[0].image.url)
             if len(msg.embeds[0].fields) - 2 > 0:
                 for i in range(len(msg.embeds[0].fields) - 2):
                     embed.add_field(name=msg.embeds[0].fields[i].name, value=msg.embeds[0].fields[i].value, inline=False)
@@ -526,11 +629,19 @@ async def on_raw_reaction_add(payLoad: discord.RawReactionActionEvent):
             if str(payLoad.emoji) == thumbsup:
                 embed.add_field(name="Likes", value=f"{prev_like + 1}", inline=True)
                 messages_list[message_idx]["likes"] += 1
+                if leaderboard.get(messages_list[message_idx]["author_id"]) == None:
+                    leaderboard[messages_list[message_idx]["author_id"]] = [1, 0]
+                else:
+                    leaderboard[messages_list[message_idx]["author_id"]] = [leaderboard[messages_list[message_idx]["author_id"]][0] + 1, leaderboard[messages_list[message_idx]["author_id"]][1]]
             else:
                 embed.add_field(name="Likes", value=f"{prev_like}", inline=True)
             if str(payLoad.emoji) == lol:
                 embed.add_field(name="Lol", value=f"{prev_lol + 1}", inline=True)
                 messages_list[message_idx]["lol"] += 1
+                if leaderboard.get(messages_list[message_idx]["author_id"]) == None:
+                    leaderboard[messages_list[message_idx]["author_id"]] = [0, 1]
+                else:
+                    leaderboard[messages_list[message_idx]["author_id"]] = [leaderboard[messages_list[message_idx]["author_id"]][0], leaderboard[messages_list[message_idx]["author_id"]][1] + 1]
             else:
                 embed.add_field(name="Lol", value=f"{prev_lol}", inline=True)
             await msg.edit(embed=embed)
@@ -569,6 +680,8 @@ async def on_raw_reaction_remove(payLoad: discord.RawReactionActionEvent):
             embed.set_author(name=msg.embeds[0].author.name)
             embed.set_footer(text=msg.embeds[0].footer.text, icon_url=msg.embeds[0].footer.icon_url)
             embed.set_thumbnail(url=msg.embeds[0].thumbnail.url)
+            if msg.embeds[0].image.url != None:
+                embed.set_image(url=msg.embeds[0].image.url)
             if len(msg.embeds[0].fields) - 2 > 0:
                 for i in range(len(msg.embeds[0].fields) - 2):
                     embed.add_field(name=msg.embeds[0].fields[i].name, value=msg.embeds[0].fields[i].value, inline=False)
@@ -577,11 +690,19 @@ async def on_raw_reaction_remove(payLoad: discord.RawReactionActionEvent):
             if str(payLoad.emoji) == thumbsup:
                 embed.add_field(name="Likes", value=f"{prev_like - 1}", inline=True)
                 messages_list[message_idx]["likes"] -= 1
+                if leaderboard.get(messages_list[message_idx]["author_id"]) == None:
+                    leaderboard[messages_list[message_idx]["author_id"]] = [-1, 0]
+                else:
+                    leaderboard[messages_list[message_idx]["author_id"]] = [leaderboard[messages_list[message_idx]["author_id"]][0] - 1, leaderboard[messages_list[message_idx]["author_id"]][1]]
             else:
                 embed.add_field(name="Likes", value=f"{prev_like}", inline=True)
             if str(payLoad.emoji) == lol:
                 embed.add_field(name="Lol", value=f"{prev_lol - 1}", inline=True)
                 messages_list[message_idx]["lol"] -= 1
+                if leaderboard.get(messages_list[message_idx]["author_id"]) == None:
+                    leaderboard[messages_list[message_idx]["author_id"]] = [0, -1]
+                else:
+                    leaderboard[messages_list[message_idx]["author_id"]] = [leaderboard[messages_list[message_idx]["author_id"]][0], leaderboard[messages_list[message_idx]["author_id"]][1] - 1]
             else:
                 embed.add_field(name="Lol", value=f"{prev_lol}", inline=True)
             await msg.edit(embed=embed)
