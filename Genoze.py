@@ -37,7 +37,7 @@ server_bans = {}
 channel_list = {}
 custom_account_channel_list = {}
 virtual_ids = {}
-virtual_ids_idx = -1
+virtual_ids_idx = 9999999999999999999
 
 facts = []
 curFact = -1
@@ -177,7 +177,8 @@ async def on_ready():
         async with aiofiles.open("virtual_ids.json", "r", encoding="utf-8") as f:
             virtual_ids = json.loads(await f.read())
 
-    virtual_ids_idx = int(sorted(virtual_ids.keys())[-1])
+    if len(virtual_ids.keys()) > 0:
+        virtual_ids_idx = int(sorted(virtual_ids.keys())[-1])
 
     for msg in messages_list:
         if leaderboard.get(msg["author_id"]) == None:
@@ -573,10 +574,13 @@ async def register_virtual_account(interaction: discord.Interaction, name: str, 
 
     if str(interaction.guild_id) in custom_account_channel_list.keys():
         if str(channel.id) in custom_account_channel_list[str(interaction.guild_id)].keys():
-            await interaction.edit_original_response(content=f"Le salon a déjà un compte virtuel enregistré : {virtual_ids[str(custom_account_channel_list[str(interaction.guild_id)][str(channel.id)])]["name"]}, un salon ne peut pas avoir plus d'un compte virtuel enregistré.")
+            await interaction.edit_original_response(content=f"Le salon a déjà un compte virtuel enregistré : {virtual_ids[str(custom_account_channel_list[str(interaction.guild_id)][str(channel.id)])]['name']}, un salon ne peut pas avoir plus d'un compte virtuel enregistré.")
             return
 
     virtual_ids_idx += 1
+
+    if custom_account_channel_list.get(str(interaction.guild_id)) == None:
+        custom_account_channel_list[str(interaction.guild_id)] = {}
 
     custom_account_channel_list[str(interaction.guild_id)][str(channel.id)] = virtual_ids_idx
     
@@ -718,7 +722,7 @@ async def add_va_member(interaction: discord.Interaction, user: discord.User, vi
         await interaction.response.send_message("Seul un membre du compte virtuel ou un administrateur peut ajouter d'autres membres au compte.", ephemeral=True)
         return
     
-    await interaction.response.send_message(f"Ajoute {user.global_name} au compte virtuel {virtual_ids[virtual_id]["name"]}...")
+    await interaction.response.send_message(f"Ajoute {user.global_name} au compte virtuel {virtual_ids[virtual_id]['name']}...")
 
     if check_member_of(user.id, virtual_ids[virtual_id]["users"]):
         await interaction.edit_original_response(content=f"{user.global_name} est déjà membre du compte virtuel.")
@@ -742,7 +746,7 @@ async def remove_va_member(interaction: discord.Interaction, user: discord.User,
         await interaction.response.send_message("Vous ne pouvez pas vous retirer.", ephemeral=True)
         return
     
-    await interaction.response.send_message(f"Retire {user.global_name} au compte virtuel {virtual_ids[virtual_id]["name"]}...")
+    await interaction.response.send_message(f"Retire {user.global_name} au compte virtuel {virtual_ids[virtual_id]['name']}...")
 
     if not check_member_of(user.id, virtual_ids[virtual_id]["users"]):
         await interaction.edit_original_response(content=f"{user.global_name} n'est pas membre du compte virtuel.")
@@ -766,13 +770,13 @@ async def messagefn(message: discord.Message, author: dict):
         }
         embed = discord.Embed(
             title=author["display_name"],
-            description=f"-# *{author["name"]} ({author["id"]})*\n---\n{message.content}",
+            description=f"-# *{author['name']} ({author['id']})*\n---\n{message.content}",
             color=discord.Color.from_rgb(7, 106, 68),
             timestamp=datetime.datetime.now(tz.gettz("Europe/Paris"))
         )
         if author["id"] > 9999999999999999999:
             embed.color=discord.Color.from_rgb(249, 163, 6)
-            embed.title=f"{author["name"]} *(compte virtuel)*"
+            embed.title=f"{author['name']} *(compte virtuel)*"
         embed.set_author(
             name="Genoze"
         )
@@ -799,7 +803,7 @@ async def messagefn(message: discord.Message, author: dict):
             if reply.author.id == bot_id:
                 reply_msgs = reply.embeds[0].description.split("\n---\n")
                 reply_msg = reply_msgs[len(reply_msgs) - 1]
-                embed.description = f"-# *{author["name"]} ({author["id"]})*\n---\n{reply.embeds[0].title} (dans {reply.embeds[0].footer.text} à {reply.embeds[0].timestamp.strftime('%d/%m/%Y')}, {(reply.embeds[0].timestamp.hour + 2) % 24}:{reply.embeds[0].timestamp.minute}) : \"{reply_msg}\"\n---\n{message.content}"
+                embed.description = f"-# *{author['name']} ({author['id']})*\n---\n{reply.embeds[0].title} (dans {reply.embeds[0].footer.text} à {reply.embeds[0].timestamp.strftime('%d/%m/%Y')}, {(reply.embeds[0].timestamp.hour + 2) % 24}:{reply.embeds[0].timestamp.minute}) : \"{reply_msg}\"\n---\n{message.content}"
         if check_member_of(str(author["id"]), server_bans.keys()):
             needCheck = True
         for server_id, channel_id in channel_list.items():
