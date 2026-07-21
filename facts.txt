@@ -3,5 +3,9 @@ Bien que le nom du bot soit en calaze, c'est un solaryen qui a tout codé !
 La Caste vous salue.
 T'as un truc à dire ? Dis le dans Genoze !
 Si vous voyez un message choquant, signalez le !
-Le bot tourne actuellement sur un Intel Atom N270...
+Le bot tourne actuellement sur un Intel Atom N270 avec 2 Go de RAM...
 La Calazie comporte 5 membres : la Nesquacie, Orion, Solarys, la Massivie et le Kobalstan.
+Il paraît que pour rejoindre un compte virtuel, il faut prier 5 fois Ińusku.
+Si un message Genoze est jaune, c'est un compte virtuel !
+En deux semaines, Genoze s'est implanté sur 8 serveurs.
+Le code fait 939 lignes.
