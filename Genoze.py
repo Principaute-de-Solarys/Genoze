@@ -33,7 +33,6 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 admin_list = set()
 ban_list = set()
 messages_list = []
-leaderboard = {}
 server_bans = {}
 channel_list = {}
 custom_account_channel_list = {}
@@ -180,13 +179,6 @@ async def on_ready():
     if len(virtual_ids.keys()) > 0:
         virtual_ids_idx = int(sorted(virtual_ids.keys())[-1])
 
-    leaderboard = {}
-    for msg in messages_list:
-        if leaderboard.get(msg["author_id"]) == None:
-            leaderboard[msg["author_id"]] = [msg["likes"], msg["lol"]]
-        else:
-            leaderboard[msg["author_id"]] = [leaderboard[msg["author_id"]][0] + msg["likes"], leaderboard[msg["author_id"]][1] + msg["lol"]]
-
     if not update_status.is_running():
         update_status.start()
 
@@ -263,6 +255,13 @@ async def leaderboardfn(interaction: discord.Interaction):
         description="## Likes :\n",
         color=discord.Color.from_rgb(7, 106, 68)
     )
+
+    leaderboard = {}
+    for msg in messages_list:
+        if leaderboard.get(msg["author_id"]) == None:
+            leaderboard[msg["author_id"]] = [msg["likes"], msg["lol"]]
+        else:
+            leaderboard[msg["author_id"]] = [leaderboard[msg["author_id"]][0] + msg["likes"], leaderboard[msg["author_id"]][1] + msg["lol"]]
 
     likesLeaderboard = {}
     lolLeaderboard = {}
@@ -941,19 +940,11 @@ async def update_message_reactions(payLoad: discord.RawReactionActionEvent, valu
             if str(payLoad.emoji) == thumbsup:
                 embed.add_field(name="Likes", value=f"{prev_like + value}", inline=True)
                 messages_list[message_idx]["likes"] += value
-                if leaderboard.get(messages_list[message_idx]["author_id"]) == None:
-                    leaderboard[messages_list[message_idx]["author_id"]] = [value, 0]
-                else:
-                    leaderboard[messages_list[message_idx]["author_id"]] = [leaderboard[messages_list[message_idx]["author_id"]][0] + value, leaderboard[messages_list[message_idx]["author_id"]][1]]
             else:
                 embed.add_field(name="Likes", value=f"{prev_like}", inline=True)
             if str(payLoad.emoji) == lol:
                 embed.add_field(name="Lol", value=f"{prev_lol + value}", inline=True)
                 messages_list[message_idx]["lol"] += value
-                if leaderboard.get(messages_list[message_idx]["author_id"]) == None:
-                    leaderboard[messages_list[message_idx]["author_id"]] = [0, value]
-                else:
-                    leaderboard[messages_list[message_idx]["author_id"]] = [leaderboard[messages_list[message_idx]["author_id"]][0], leaderboard[messages_list[message_idx]["author_id"]][1] + value]
             else:
                 embed.add_field(name="Lol", value=f"{prev_lol}", inline=True)
             
