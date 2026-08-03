@@ -8,4 +8,8 @@ La Calazie comporte 5 membres : la Nesquacie, Orion, Solarys, la Massivie et le 
 Il paraît que pour rejoindre un compte virtuel, il faut prier 5 fois Ińusku.
 Si un message Genoze est jaune, c'est un compte virtuel !
 En deux semaines, Genoze s'est implanté sur 8 serveurs.
-Le code fait 939 lignes.
+Le code fait 984 lignes. Est-il optimisé ? Non 👀
+Genoze ! Soldys ! Hosaloj ! Лɔвй дйя ! Bòendæ !
+Regarde comment ce bot fonctionne avec le lien Github en description !
+Fun fact : l'évènement "on_ready" s'exécute aussi à chaque reconnexion du bot (d'où le bug du leaderboard).
+Fun fact : en plus d'éviter d'avoir des réactions négatives, le nouveau code (0.3.1) améliore la vitesse de 1 seconde pour 3 serveurs !

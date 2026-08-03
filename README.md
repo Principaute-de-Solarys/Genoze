@@ -27,7 +27,7 @@ Le bot utilise exclusivement les commandes slash.
 
 ### Commandes administrateurs Genoze (Global)
 *   `/register_channel [salon]` : Enregistre le salon actuel (ou celui spécifié) comme le salon Genoze officiel du serveur (limité à 1 par serveur).
-*   `/unregister_channel` : Supprime le salon du réseau Genoze.
+*   `/unregister_channel [server_id]` : Supprime le salon du réseau Genoze.
 *   `/ban [utilisateur]` : Bannit un utilisateur de l'intégralité du réseau Genoze.
 *   `/unban [utilisateur]` : Débannit un utilisateur du réseau global.
 *   `/op [utilisateur]` : Donne les droits d'administration Genoze à un utilisateur.

@@ -27,6 +27,7 @@ intents = discord.Intents.default()
 intents.messages = True
 intents.reactions = True
 intents.message_content = True
+intents.members = True
 bot = commands.Bot(command_prefix='!', intents=intents)
 
 admin_list = set()
@@ -120,9 +121,8 @@ class MessageBtns(discord.ui.View):
 
         messages_list.pop(message_idx)
 
-        f = open("messages.json", "w")
-        f.write(json.dumps(messages_list))
-        f.close()
+        async with aiofiles.open("messages.json", "w", encoding="utf-8") as f:
+            await f.write(json.dumps(messages_list, indent=4))
 
         await interaction.edit_original_response(content="Le message a été supprimé.")
 
@@ -180,13 +180,15 @@ async def on_ready():
     if len(virtual_ids.keys()) > 0:
         virtual_ids_idx = int(sorted(virtual_ids.keys())[-1])
 
+    leaderboard = {}
     for msg in messages_list:
         if leaderboard.get(msg["author_id"]) == None:
             leaderboard[msg["author_id"]] = [msg["likes"], msg["lol"]]
         else:
             leaderboard[msg["author_id"]] = [leaderboard[msg["author_id"]][0] + msg["likes"], leaderboard[msg["author_id"]][1] + msg["lol"]]
 
-    update_status.start()
+    if not update_status.is_running():
+        update_status.start()
 
     print(f'Bot connecté en tant que {bot.user}')
 
@@ -222,7 +224,7 @@ async def help(interaction: discord.Interaction):
     embed.add_field(name="/report message_id:[L'identifiant du message à signaler]", value="Signale un message.", inline=False)
     embed.add_field(name="/add_bot", value="Vous donne un lien permettant d'ajouter Genoze sur votre serveur. Il vous faudra un administrateur de Genoze pour installer le bot.", inline=False)
     embed.add_field(name="[ADMIN GENOZE] /register_channel (channel:[Salon à enregistrer])", value="Enregistre un salon Genoze.", inline=False)
-    embed.add_field(name="[ADMIN GENOZE] /unregister_channel", value="Supprime un salon Genoze.", inline=False)
+    embed.add_field(name="[ADMIN GENOZE] /unregister_channel (server_id:[Le serveur à supprimer])", value="Supprime un salon Genoze.", inline=False)
     embed.add_field(name="[ADMIN GENOZE] /ban user:[L'utilisateur à bannir]", value="Bannit un utilisateur de Genoze.", inline=False)
     embed.add_field(name="[ADMIN GENOZE] /unban user:[L'utilisateur à débannir]", value="Débannit un utilisateur de Genoze.", inline=False)
     embed.add_field(name="[ADMIN GENOZE] /op user:[L'utilisateur à rendre administrateur]", value="Rend un utilisateur administrateur.", inline=False)
@@ -234,7 +236,7 @@ async def help(interaction: discord.Interaction):
     embed.add_field(name="[MEMBRE COMPTE VIRTUEL/ADMIN SERV] /add_va_member user:[L'utilisateur à ajouter] virtual_id:[L'identifiant du compte virtuel]", value="Ajoute un membre au compte virtuel.", inline=False)
     embed.add_field(name="[MEMBRE COMPTE VIRTUEL/ADMIN SERV] /remove_va_member user:[L'utilisateur à retirer] virtual_id:[L'identifiant du compte virtuel]", value="Retire un membre au compte virtuel.", inline=False)
    
-    embed.set_footer(text="Version : 0.3\nSi vous voulez contribuer au développement de Genoze, contactez Timoh de Solarys.")
+    embed.set_footer(text="Version : 0.3.1\nSi vous voulez contribuer au développement de Genoze, contactez Timoh de Solarys.")
    
     await interaction.response.send_message(embed=embed)
 
@@ -414,20 +416,33 @@ async def register_channel(interaction: discord.Interaction, channel: discord.Te
     await interaction.edit_original_response(content=f"Le salon {channel.jump_url} a bien été enregistré comme salon Genoze pour le serveur {interaction.guild.name}.")
 
 @bot.tree.command(name="unregister_channel", description="[ADMIN GENOZE] Supprime un salon Genoze.")
-async def unregister_channel(interaction: discord.Interaction):
+@app_commands.describe(server_id="Le serveur à supprimer.")
+async def unregister_channel(interaction: discord.Interaction, server_id: str = None):
     if not check_member_of(interaction.user.id, admin_list):
         await interaction.response.send_message("Seul un administrateur Genoze peut exécuter cette commande.", ephemeral=True)
         return
 
     await interaction.response.send_message("Supprime le salon de la liste...")
 
-    if interaction.guild_id in channel_list.keys():
-        registered_channel = interaction.guild.get_channel(channel_list[interaction.guild_id]) or await interaction.guild.fetch_channel(channel_list[interaction.guild_id])
-        del channel_list[interaction.guild_id]
+    custom_id = False
+
+    if server_id == None:
+        server_idd = interaction.guild_id
+    else:
+        server_idd = int(server_id)
+        custom_id = True
+
+    if server_idd in channel_list.keys():
+        if custom_id == False:
+            registered_channel = interaction.guild.get_channel(channel_list[server_idd]) or await interaction.guild.fetch_channel(channel_list[server_idd])
+        del channel_list[server_idd]
         async with aiofiles.open("channels.txt", "w", encoding="utf-8") as f:
             for k, v in channel_list.items():
                 await f.write(f"{k}/{v}\n")
-        await interaction.edit_original_response(content=f"Le salon enregistré ({registered_channel.jump_url}) a bien été supprimé de la liste de Genoze.")
+        if custom_id == False:
+            await interaction.edit_original_response(content=f"Le salon enregistré ({registered_channel.jump_url}) a bien été supprimé de la liste de Genoze.")
+        else:
+            await interaction.edit_original_response(content=f"Le salon enregistré du serveur {server_id} a bien été supprimé de la liste de Genoze.")
     else:
         await interaction.edit_original_response(content=f"Aucun salon Genoze n'a été enregistré pour ce serveur.")
 
@@ -776,7 +791,7 @@ async def messagefn(message: discord.Message, author: dict):
         )
         if author["id"] > 9999999999999999999:
             embed.color=discord.Color.from_rgb(249, 163, 6)
-            embed.title=f"{author['name']} *(compte virtuel)*"
+            embed.title=f"{author['display_name']} *(compte virtuel)*"
         embed.set_author(
             name="Genoze"
         )
@@ -807,28 +822,54 @@ async def messagefn(message: discord.Message, author: dict):
         if check_member_of(str(author["id"]), server_bans.keys()):
             needCheck = True
         for server_id, channel_id in channel_list.items():
-            server = bot.get_guild(server_id) or await bot.fetch_guild(server_id)
-            channel = server.get_channel(channel_id) or await server.fetch_channel(channel_id)
-            if needCheck:
-                if check_member_of(server_id, server_bans[str(author["id"])]):
-                    real_sender = message.guild.get_member(author["sender_id"]) or await message.guild.fetch_member(author["sender_id"])
-                    await real_sender.send(content=f"Votre [message]({message.channel.jump_url}) n'a pas été transféré sur {server.name} car vous y êtes banni.e.")
-                    continue
-            bot_message = await channel.send(embed=embed, view=MessageBtns(timeout=None))
-            await bot_message.add_reaction(thumbsup)
-            await bot_message.add_reaction(lol)
-            message_data["servers_published"].append(server_id)
-            message_data["messages_published"].append(bot_message.id)
+            try:
+                server = bot.get_guild(server_id) or await bot.fetch_guild(server_id)
+                channel = server.get_channel(channel_id) or await server.fetch_channel(channel_id)
+                if needCheck:
+                    if check_member_of(server_id, server_bans[str(author["id"])]):
+                        try:
+                            real_sender = message.guild.get_member(author["sender_id"]) or await message.guild.fetch_member(author["sender_id"])
+                            await real_sender.send(content=f"Votre [message]({message.channel.jump_url}) n'a pas été transféré sur {server.name} car vous y êtes banni.e.")
+                        except:
+                            pass
+                        continue
+                try:
+                    bot_message = await channel.send(embed=embed, view=MessageBtns(timeout=None))
+                    message_data["servers_published"].append(server_id)
+                    message_data["messages_published"].append(bot_message.id)
+                except:
+                    for member in server.members:
+                        if member.guild_permissions.administrator:
+                            try:
+                                await member.send(content=f"Le [salon Genoze]({channel.jump_url}) est inaccessible pour le bot. Vérifiez que le salon permet au bot d'écrire, de gérer les messages, de voir les messages et de voir le salon. Si vous souhaitez enlever Genoze, demandez à un admin Genoze de le retirer\n-# Ce message a été envoyé à tous ceux possédant les permissions d'administrateur sur le serveur {server.name}.")
+                            except:
+                                pass
+            except discord.NotFound:
+                for member_id in admin_list:
+                    member = bot.get_user(member_id) or await bot.fetch_user(member_id)
+                    try:
+                        await member.send(content=f"Le serveur avec comme id {server_id} est inaccessible par le bot, cela veut dire qu'un administrateur a retiré le bot sans prévenir l'administration Genoze. Faites `/unregister_channel server_id:{server_id}` ou prévenez les administrateurs du serveur pour arrêter de recevoir ce genre de messages.")
+                    except:
+                        pass
         
         messages_list.append(message_data)
 
         async with aiofiles.open("messages.json", "w", encoding="utf-8") as f:
             await f.write(json.dumps(messages_list, indent=4))
+            
+        for server_id_idx in range(len(message_data["servers_published"])):
+            server_id = message_data["servers_published"][server_id_idx]
+            channel_id = channel_list[server_id]
+            server = bot.get_guild(server_id) or await bot.fetch_guild(server_id)
+            channel = server.get_channel(channel_id) or await server.fetch_channel(channel_id)
+            bot_message = channel.get_partial_message(message_data["messages_published"][server_id_idx]) or await channel.fetch_message(message_data["messages_published"][server_id_idx])
+            await bot_message.add_reaction(thumbsup)
+            await bot_message.add_reaction(lol)
     else:
         try:
             real_sender = message.guild.get_member(author["sender_id"]) or await message.guild.fetch_member(author["sender_id"])
             await real_sender.send(content=f"Votre [message]({message.channel.jump_url}) n'a pas été transféré sur les autres serveurs car vous êtes banni.e.")
-        except discord.Forbidden:
+        except:
             pass
         if author["id"] <= 9999999999999999999:
             await message.delete()
@@ -845,7 +886,7 @@ async def on_message(message: discord.Message):
                 "sender_id": message.author.id
             }
             await messagefn(message, author)
-        elif str(message.channel.id) in custom_account_channel_list.get(str(message.guild.id)).keys():
+        elif custom_account_channel_list.get(str(message.guild.id)) and str(message.channel.id) in custom_account_channel_list.get(str(message.guild.id)).keys():
             vid = str(custom_account_channel_list[str(message.guild.id)][str(message.channel.id)])
 
             pala = 0
@@ -884,7 +925,7 @@ async def update_message_reactions(payLoad: discord.RawReactionActionEvent, valu
             embed = discord.Embed(
                 title=msg.embeds[0].title,
                 description=msg.embeds[0].description,
-                color=discord.Color.from_rgb(7, 106, 68),
+                color=msg.embeds[0].color,
                 timestamp=msg.embeds[0].timestamp
             )
             embed.set_author(name=msg.embeds[0].author.name)
