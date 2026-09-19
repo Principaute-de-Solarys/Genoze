@@ -75,6 +75,57 @@ class Report(ui.Modal, title="Formulaire de signalement Genoze"):
 
         await interaction.response.send_message(content="Votre signalement a bien été envoyé !", ephemeral=True)
 
+class Edit(ui.Modal, title="Modifier le message"):
+    def __init__(self, *, timeout = None, custom_id, content: str):
+        super().__init__(title= "Modifier le message", timeout=timeout, custom_id=custom_id)
+
+        self.msgContent = ui.TextInput(label="Contenu", style=discord.TextStyle.paragraph, required=True, default=content)
+        self.add_item(self.msgContent)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        message_id = int(self.custom_id)
+        message_idx = -1
+        for i in range(len(messages_list)):
+            if check_member_of(message_id, messages_list[i]["messages_published"]):
+                message_idx = i
+                break
+        
+        msg = None
+
+        if message_idx < 0:
+            await interaction.response.send_message(content="Une erreur est survenue lors de la modification du message.", ephemeral=True)
+            return
+
+        server = bot.get_guild(messages_list[message_idx]["servers_published"][0]) or await bot.fetch_guild(messages_list[message_idx]["servers_published"][0])
+        channel = server.get_channel(channel_list[messages_list[message_idx]["servers_published"][0]]) or await server.fetch_channel(channel_list[messages_list[message_idx]["servers_published"][0]])
+        msg = await channel.fetch_message(messages_list[message_idx]["messages_published"][0])
+        embed = discord.Embed(
+            title=msg.embeds[0].title,
+            description=f"{msg.embeds[0].description.split('---\n')[0]} *(modifié le {datetime.datetime.now(tz.gettz("Europe/Paris")).strftime("%d/%m/%Y à %H:%M")})*\n---\n{self.msgContent}",
+            color=msg.embeds[0].color,
+            timestamp=msg.embeds[0].timestamp
+        )
+        embed.set_author(name=msg.embeds[0].author.name)
+        embed.set_footer(text=msg.embeds[0].footer.text, icon_url=msg.embeds[0].footer.icon_url)
+        embed.set_thumbnail(url=msg.embeds[0].thumbnail.url)
+        if msg.embeds[0].image.url != None:
+            embed.set_image(url=msg.embeds[0].image.url)
+        for i in range(len(msg.embeds[0].fields)):
+            embed.add_field(name=msg.embeds[0].fields[i].name, value=msg.embeds[0].fields[i].value, inline=msg.embeds[0].fields[i].inline)
+
+        await interaction.response.send_message(content="Votre message a bien été modifié !", ephemeral=True)
+
+        for i, server_id in enumerate(messages_list[message_idx]["servers_published"]):
+            channel_id = channel_list.get(server_id)
+            server = bot.get_guild(server_id) or await bot.fetch_channel(server_id)
+            if server and channel_id:
+                channel = server.get_channel(channel_id) or await server.fetch_channel(channel_id)
+                try:
+                    target_msg = channel.get_partial_message(messages_list[message_idx]["messages_published"][i])
+                    await target_msg.edit(embed=embed)
+                except discord.HTTPException:
+                    pass
+
 class MessageBtns(discord.ui.View):
     @discord.ui.button(label="Signaler", style=discord.ButtonStyle.red)
     async def reportbtn(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -110,13 +161,16 @@ class MessageBtns(discord.ui.View):
             await interaction.response.send_message(content="Une erreur est survenue lors de la suppression.")
             return
         
-        for i in range(len(messages_list[message_idx]["servers_published"])):
-            server_id = messages_list[message_idx]["servers_published"][i]
-            channel_id = channel_list[server_id]
-            server = bot.get_guild(server_id) or await bot.fetch_guild(server_id)
-            channel = server.get_channel(channel_id) or await server.fetch_channel(channel_id)
-            bot_message = channel.get_partial_message(messages_list[message_idx]["messages_published"][i]) or await channel.fetch_message(messages_list[message_idx]["messages_published"][i])
-            await bot_message.delete()
+        for i, server_id in enumerate(messages_list[message_idx]["servers_published"]):
+            channel_id = channel_list.get(server_id)
+            server = bot.get_guild(server_id) or await bot.fetch_channel(server_id)
+            if server and channel_id:
+                channel = server.get_channel(channel_id) or await server.fetch_channel(channel_id)
+                try:
+                    bot_message = channel.get_partial_message(messages_list[message_idx]["messages_published"][i])
+                    await bot_message.delete()
+                except discord.HTTPException:
+                    pass
 
         messages_list.pop(message_idx)
 
@@ -124,6 +178,44 @@ class MessageBtns(discord.ui.View):
             await f.write(json.dumps(messages_list, indent=4))
 
         await interaction.edit_original_response(content="Le message a été supprimé.")
+
+    @discord.ui.button(label="Modifier", style=discord.ButtonStyle.blurple)
+    async def editbtn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        og_id = int(interaction.message.embeds[0].description.split("(")[1].split(")")[0])
+        if interaction.user.id != og_id and not check_member_of(interaction.user.id, admin_list):
+            if og_id > 9999999999999999999:
+                og_id = str(og_id)
+                pala = 0
+                for uid in virtual_ids[og_id]["users"]:
+                    if interaction.user.id != uid:
+                        pala += 1
+
+                if pala == len(virtual_ids[og_id]["users"]):
+                    await interaction.response.send_message(content="Vous ne pouvez pas éditer un message qui ne vous appartient pas.", ephemeral=True)
+                    return
+            else:
+                await interaction.response.send_message(content="Vous ne pouvez pas éditer un message qui ne vous appartient pas.", ephemeral=True)
+                return
+        
+        message_id = interaction.message.id
+        message_idx = -1
+        for i in range(len(messages_list)):
+            if check_member_of(message_id, messages_list[i]["messages_published"]):
+                message_idx = i
+                break
+        
+        msg = None
+
+        if message_idx < 0:
+            await interaction.response.send_message(f"Une erreur est survenue lors de la modification du message.", ephemeral=True)
+            return
+
+        server = bot.get_guild(messages_list[message_idx]["servers_published"][0]) or await bot.fetch_guild(messages_list[message_idx]["servers_published"][0])
+        channel = server.get_channel(channel_list[messages_list[message_idx]["servers_published"][0]]) or await server.fetch_channel(channel_list[messages_list[message_idx]["servers_published"][0]])
+        msg = await channel.fetch_message(messages_list[message_idx]["messages_published"][0])
+        content = msg.embeds[0].description.split("---\n")[1]
+
+        await interaction.response.send_modal(Edit(custom_id=str(interaction.message.id), content=content))
 
 def check_member_of(id: int, set: set):
     return id in set
@@ -211,8 +303,9 @@ async def help(interaction: discord.Interaction):
    
     embed.add_field(name="/help", value="Vous donne ce message.", inline=False)
     embed.add_field(name="/ping", value="Permet de tester la présence du bot.", inline=False)
-    embed.add_field(name="/leaderboard", value="Donne le classement des likes et des lol.", inline=False)
-    embed.add_field(name="/delete_message message_id:[L'identifiant du message à supprimer]", value="Supprime votre message.", inline=False)
+    embed.add_field(name="/leaderboard max_id:[Rang maximal du leaderboard]", value="Donne le classement des likes et des lol.", inline=False)
+    embed.add_field(name="/edit_message message_id:[L'identifiant du message à modifier]", value="Modifie un message.", inline=False)
+    embed.add_field(name="/delete_message message_id:[L'identifiant du message à supprimer]", value="Supprime un message.", inline=False)
     embed.add_field(name="/report message_id:[L'identifiant du message à signaler]", value="Signale un message.", inline=False)
     embed.add_field(name="/add_bot", value="Vous donne un lien permettant d'ajouter Genoze sur votre serveur. Il vous faudra un administrateur de Genoze pour installer le bot.", inline=False)
     embed.add_field(name="[ADMIN GENOZE] /register_channel (channel:[Salon à enregistrer])", value="Enregistre un salon Genoze.", inline=False)
@@ -228,7 +321,7 @@ async def help(interaction: discord.Interaction):
     embed.add_field(name="[MEMBRE COMPTE VIRTUEL/ADMIN SERV] /add_va_member user:[L'utilisateur à ajouter] virtual_id:[L'identifiant du compte virtuel]", value="Ajoute un membre au compte virtuel.", inline=False)
     embed.add_field(name="[MEMBRE COMPTE VIRTUEL/ADMIN SERV] /remove_va_member user:[L'utilisateur à retirer] virtual_id:[L'identifiant du compte virtuel]", value="Retire un membre au compte virtuel.", inline=False)
    
-    embed.set_footer(text="Version : 0.3.1\nSi vous voulez contribuer au développement de Genoze, contactez Timoh de Solarys.")
+    embed.set_footer(text="Version : 0.4\nSi vous voulez contribuer au développement de Genoze, contactez Timoh de Solarys.")
    
     await interaction.response.send_message(embed=embed)
 
@@ -247,38 +340,55 @@ async def add_bot(interaction: discord.Interaction):
     await interaction.response.send_message(embed=embed)
 
 @bot.tree.command(name="leaderboard", description="Fait un classement des 5 premières personnes ayant le plus de réactions.")
-async def leaderboardfn(interaction: discord.Interaction):
+@app_commands.describe(max_id="Rang maximal du leaderboard.")
+async def leaderboardfn(interaction: discord.Interaction, max_id: int = 5):
     await interaction.response.send_message("Charge les données du leaderboard...")
 
     embed = discord.Embed(
         title="Classement Genoze",
-        description="## Likes :\n",
+        description="## Par utilisateurs :\n### Likes :\n",
         color=discord.Color.from_rgb(7, 106, 68)
     )
-
-    leaderboard = {}
-    for msg in messages_list:
-        if leaderboard.get(msg["author_id"]) == None:
-            leaderboard[msg["author_id"]] = [msg["likes"], msg["lol"]]
-        else:
-            leaderboard[msg["author_id"]] = [leaderboard[msg["author_id"]][0] + msg["likes"], leaderboard[msg["author_id"]][1] + msg["lol"]]
-
+    
     likesLeaderboard = {}
     lolLeaderboard = {}
     posidx = 1
-    maxId = 5
     posUserLikes = 0
     posUserLol = 0
 
-    if len(leaderboard) < maxId:
-        maxId = len(leaderboard)
+    likesLeaderboard_msg = {}
+    lolLeaderboard_msg = {}
+    max_id_msg = max_id
+    
+    if len(messages_list) < max_id_msg:
+        max_id_msg = len(messages_list)
 
-    for k, v in leaderboard.items():
-        likesLeaderboard[k] = v[0]
-        lolLeaderboard[k] = v[1]
+    server_id = interaction.guild_id
+    server = bot.get_guild(server_id) or await bot.fetch_guild(server_id)
+    channel = server.get_channel(channel_list[server_id]) or await server.fetch_channel(channel_list[server_id])
+    message_id_pos = list(channel_list.keys()).index(server_id)
+
+    for msg in messages_list:
+        if likesLeaderboard.get(msg["author_id"]) == None:
+            likesLeaderboard[msg["author_id"]] = msg["likes"]
+        else:
+            likesLeaderboard[msg["author_id"]] = likesLeaderboard[msg["author_id"]] + msg["likes"]
+        if lolLeaderboard.get(msg["author_id"]) == None:
+            lolLeaderboard[msg["author_id"]] = msg["lol"]
+        else:
+            lolLeaderboard[msg["author_id"]] = lolLeaderboard[msg["author_id"]] + msg["lol"]
+        message = channel.get_partial_message(msg["messages_published"][message_id_pos])
+        likesLeaderboard_msg[message.jump_url] = msg["likes"]
+        lolLeaderboard_msg[message.jump_url] = msg["lol"]
+
+    
+    if len(likesLeaderboard) < max_id or len(lolLeaderboard) < max_id:
+        max_id = ((len(likesLeaderboard) < len(lolLeaderboard)) and len(likesLeaderboard)) or len(lolLeaderboard)
 
     likesLeaderboard = dict(sorted(likesLeaderboard.items(), key=lambda item: item[1], reverse=True))
     lolLeaderboard = dict(sorted(lolLeaderboard.items(), key=lambda item: item[1], reverse=True))
+    likesLeaderboard_msg = dict(sorted(likesLeaderboard_msg.items(), key=lambda item: item[1], reverse=True))
+    lolLeaderboard_msg = dict(sorted(lolLeaderboard_msg.items(), key=lambda item: item[1], reverse=True))
 
     for k, v in likesLeaderboard.items():
         if k > 9999999999999999999:
@@ -290,20 +400,20 @@ async def leaderboardfn(interaction: discord.Interaction):
         elif k == interaction.user.id and curUser:
             embed.description = f"{embed.description}{posidx}. **{curUser.mention} (vous) : {v} likes**\n"
             posUserLikes = posidx
-        elif posidx < 6 and curUser:
+        elif posidx <= max_id and curUser:
             embed.description = f"{embed.description}{posidx}. {curUser.mention} : {v} likes\n"
-        elif posidx <6 and not curUser:
+        elif posidx <= max_id and not curUser:
             embed.description = f"{embed.description}{posidx}. {k} : {v} likes\n"
-        elif posidx == 6:
+        elif posidx == max_id + 1:
             embed.description = f"{embed.description}\n"
 
         posidx += 1
 
-        if posidx > maxId and (posUserLikes != 0 or not check_member_of(interaction.user.id, likesLeaderboard.keys())):
+        if posidx > max_id and (posUserLikes != 0 or not check_member_of(interaction.user.id, likesLeaderboard.keys())):
             break
-        
+
     posidx = 1
-    embed.description = f"{embed.description}## Lol :\n"
+    embed.description = f"{embed.description}### Lol :\n"
 
     for k, v in lolLeaderboard.items():
         if k > 9999999999999999999:
@@ -315,19 +425,84 @@ async def leaderboardfn(interaction: discord.Interaction):
         elif k == interaction.user.id and curUser:
             embed.description = f"{embed.description}{posidx}. **{curUser.mention} (vous) : {v} lol**\n"
             posUserLol = posidx
-        elif posidx < 6 and curUser:
+        elif posidx <= max_id and curUser:
             embed.description = f"{embed.description}{posidx}. {curUser.mention} : {v} lol\n"
-        elif posidx < 6 and not curUser:
+        elif posidx <= max_id and not curUser:
             embed.description = f"{embed.description}{posidx}. {k} : {v} lol\n"
-        elif posidx == 6:
+        elif posidx == max_id + 1:
             embed.description = f"{embed.description}\n"
         
         posidx += 1
 
-        if posidx > maxId and (posUserLol != 0 or not check_member_of(interaction.user.id, lolLeaderboard.keys())):
+        if posidx > max_id and (posUserLol != 0 or not check_member_of(interaction.user.id, lolLeaderboard.keys())):
             break
+        
+    posidx = 1
+    embed.description = f"{embed.description}## Par messages :\n### Likes :\n"
+
+    for k, v in likesLeaderboard_msg.items():
+        if posidx <= max_id_msg:
+            embed.description = f"{embed.description}{posidx}. {k} : {v} likes\n"
+        elif posidx == max_id_msg + 1:
+            embed.description = f"{embed.description}\n"
+
+        posidx += 1
+
+    posidx = 1
+    embed.description = f"{embed.description}### Lol :\n"
+
+    for k, v in lolLeaderboard_msg.items():
+            if posidx <= max_id_msg:
+                embed.description = f"{embed.description}{posidx}. {k} : {v} lol\n"
+            elif posidx == max_id_msg + 1:
+                embed.description = f"{embed.description}\n"
+    
+            posidx += 1
 
     await interaction.edit_original_response(content="", embed=embed)
+
+@bot.tree.command(name="edit_message", description="Modifie un message Genoze.")
+@app_commands.describe(message_id="Le message à modifier.")
+async def edit_message(interaction: discord.Interaction, message_id: str):
+    mid = int(message_id)
+    message = await interaction.channel.fetch_message(mid)
+
+    if isinstance(message, discord.Message) and message.author.id == bot_id:
+        og_id = int(message.embeds[0].description.split("(")[1].split(")")[0])
+
+        if interaction.user.id != og_id and not check_member_of(interaction.user.id, admin_list):
+            if og_id > 9999999999999999999:
+                og_id = str(og_id)
+                pala = 0
+                for uid in virtual_ids[og_id]["users"]:
+                    if interaction.user.id != uid:
+                        pala += 1
+
+                if pala == len(virtual_ids[og_id]["users"]):
+                    await interaction.response.send_message(content="Vous ne pouvez pas éditer un message qui ne vous appartient pas.", ephemeral=True)
+                    return
+            else:
+                await interaction.response.send_message(content="Vous ne pouvez pas éditer un message qui ne vous appartient pas.", ephemeral=True)
+                return
+        
+        if len(message.embeds) == 1 and message.embeds[0].author.name == "Genoze":
+            message_idx = -1
+            for i in range(len(messages_list)):
+                if check_member_of(mid, messages_list[i]["messages_published"]):
+                    message_idx = i
+                    break
+            
+            msg = None
+
+            if message_idx < 0:
+                await interaction.response.send_message(f"Une erreur est survenue lors de la modification du message.", ephemeral=True)
+                return
+
+            server = bot.get_guild(messages_list[message_idx]["servers_published"][0]) or await bot.fetch_guild(messages_list[message_idx]["servers_published"][0])
+            channel = server.get_channel(channel_list[messages_list[message_idx]["servers_published"][0]]) or await server.fetch_channel(channel_list[messages_list[message_idx]["servers_published"][0]])
+            msg = await channel.fetch_message(messages_list[message_idx]["messages_published"][0])
+            content = msg.embeds[0].description.split("---\n")[1]
+            await interaction.response.send_modal(Edit(custom_id=str(mid), content=content))
 
 @bot.tree.command(name="delete_message", description="Supprime un message Genoze.")
 @app_commands.describe(message_id="Le message à supprimer.")
@@ -353,7 +528,7 @@ async def delete_message(interaction: discord.Interaction, message_id: str):
                 await interaction.response.send_message(content="Vous ne pouvez pas supprimer un message qui ne vous appartient pas.", ephemeral=True)
                 return
         
-        await interaction.response.send_message("Supprime le message...")
+        await interaction.response.send_message("Supprime le message...", ephemeral=True)
         
         if len(message.embeds) == 1 and message.embeds[0].author.name == "Genoze":
             message_idx = -1
@@ -363,13 +538,16 @@ async def delete_message(interaction: discord.Interaction, message_id: str):
                     break
             
             if message_idx != -1:
-                for i in range(len(messages_list[message_idx]["servers_published"])):
-                    server_id = messages_list[message_idx]["servers_published"][i]
-                    channel_id = channel_list[server_id]
-                    server = bot.get_guild(server_id) or await bot.fetch_guild(server_id)
-                    channel = server.get_channel(channel_id) or await server.fetch_channel(channel_id)
-                    bot_message = channel.get_partial_message(messages_list[message_idx]["messages_published"][i]) or await channel.fetch_message(messages_list[message_idx]["messages_published"][i])
-                    await bot_message.delete()
+                for i, server_id in enumerate(messages_list[message_idx]["servers_published"]):
+                    channel_id = channel_list.get(server_id)
+                    server = bot.get_guild(server_id) or await bot.fetch_channel(server_id)
+                    if server and channel_id:
+                        channel = server.get_channel(channel_id) or await server.fetch_channel(channel_id)
+                        try:
+                            bot_message = channel.get_partial_message(messages_list[message_idx]["messages_published"][i])
+                            await bot_message.delete()
+                        except discord.HTTPException:
+                            pass
 
                 messages_list.pop(message_idx)
 

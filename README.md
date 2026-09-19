@@ -7,6 +7,7 @@ Genoze est un bot Discord d'inter-communication développé en Python par Timoh 
 *   **Inter-communication Discord synchrone :** Chaque message envoyé dans un salon Genoze enregistré est automatiquement mis en forme dans un Embed élégant et retransmis en temps réel sur tous les autres serveurs connectés.
 *   **Système de réponses :** Vous pouvez répondre aux messages du bot pour répondre au contenu.
 *   **Système de suppression :** Vous pouvez supprimer vos messages.
+*   **Système de modification :** Vous pouvez modifier vos messages.
 *   **Réactions synchronisées :** Les réactions ajoutées ou retirées sur un serveur sont répercutées instantanément sur l'ensemble des serveurs du réseau.
 *   **Comptes virtuels :** Vous pouvez créer des comptes virtuels pour partager vos annonces de mannière officielle sur Genoze.
 *   **Signalement (modération) :** Un bouton "Signaler" attaché à chaque message permet aux utilisateurs d'ouvrir un formulaire pour envoyer une alerte directement aux administrateurs de Genoze avec le contexte du message.
@@ -22,8 +23,11 @@ Le bot utilise exclusivement les commandes slash.
 ### Commandes publiques
 *   `/help` : Affiche la liste des commandes et les informations de version.
 *   `/ping` : Teste la présence du bot.
-*   `/leaderboard` : Affiche le classement des réactions.
+*   `/leaderboard [max_id]` : Affiche le classement des réactions.
 *   `/add_bot` : Fournit le lien d'invitation OAuth2 du bot.
+*   `/edit_message [message_id]` : Modifie un message.
+*   `/delete_message [message_id]` : Supprime un message.
+*   `/report [message_id]` : Signale un message.
 
 ### Commandes administrateurs Genoze (Global)
 *   `/register_channel [salon]` : Enregistre le salon actuel (ou celui spécifié) comme le salon Genoze officiel du serveur (limité à 1 par serveur).
@@ -32,7 +36,6 @@ Le bot utilise exclusivement les commandes slash.
 *   `/unban [utilisateur]` : Débannit un utilisateur du réseau global.
 *   `/op [utilisateur]` : Donne les droits d'administration Genoze à un utilisateur.
 *   `/deop [utilisateur]` : Retire les privilèges d'administration Genoze.
-*   `/delete_message [message_id]` : Supprime un message.
 
 ### Commandes administrateurs serveur (Local)
 *   `/guild_ban [utilisateur]` : Bannit localement un utilisateur pour qu'il n'apparaisse plus sur votre serveur.
