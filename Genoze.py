@@ -99,9 +99,14 @@ class Edit(ui.Modal, title="Modifier le message"):
         server = bot.get_guild(messages_list[message_idx]["servers_published"][0]) or await bot.fetch_guild(messages_list[message_idx]["servers_published"][0])
         channel = server.get_channel(channel_list[messages_list[message_idx]["servers_published"][0]]) or await server.fetch_channel(channel_list[messages_list[message_idx]["servers_published"][0]])
         msg = await channel.fetch_message(messages_list[message_idx]["messages_published"][0])
+        contents = msg.embeds[0].description.split('---\n')
+        old_top_content = contents[0]
+        old_response_content = ""
+        if len(contents) > 2:
+            old_response_content = contents[1] + "---\n"
         embed = discord.Embed(
             title=msg.embeds[0].title,
-            description=f"{msg.embeds[0].description.split('---\n')[0]} *(modifié le {datetime.datetime.now(tz.gettz("Europe/Paris")).strftime("%d/%m/%Y à %H:%M")})*\n---\n{self.msgContent}",
+            description=f"{old_top_content} *(modifié le {datetime.datetime.now(tz.gettz('Europe/Paris')).strftime('%d/%m/%Y à %H:%M')})*\n---\n{old_response_content}{self.msgContent}",
             color=msg.embeds[0].color,
             timestamp=msg.embeds[0].timestamp
         )
@@ -213,7 +218,8 @@ class MessageBtns(discord.ui.View):
         server = bot.get_guild(messages_list[message_idx]["servers_published"][0]) or await bot.fetch_guild(messages_list[message_idx]["servers_published"][0])
         channel = server.get_channel(channel_list[messages_list[message_idx]["servers_published"][0]]) or await server.fetch_channel(channel_list[messages_list[message_idx]["servers_published"][0]])
         msg = await channel.fetch_message(messages_list[message_idx]["messages_published"][0])
-        content = msg.embeds[0].description.split("---\n")[1]
+        contents = msg.embeds[0].description.split("---\n")
+        content = contents[len(contents) - 1]
 
         await interaction.response.send_modal(Edit(custom_id=str(interaction.message.id), content=content))
 
@@ -321,7 +327,7 @@ async def help(interaction: discord.Interaction):
     embed.add_field(name="[MEMBRE COMPTE VIRTUEL/ADMIN SERV] /add_va_member user:[L'utilisateur à ajouter] virtual_id:[L'identifiant du compte virtuel]", value="Ajoute un membre au compte virtuel.", inline=False)
     embed.add_field(name="[MEMBRE COMPTE VIRTUEL/ADMIN SERV] /remove_va_member user:[L'utilisateur à retirer] virtual_id:[L'identifiant du compte virtuel]", value="Retire un membre au compte virtuel.", inline=False)
    
-    embed.set_footer(text="Version : 0.4\nSi vous voulez contribuer au développement de Genoze, contactez Timoh de Solarys.")
+    embed.set_footer(text="Version : 0.4.1\nSi vous voulez contribuer au développement de Genoze, contactez Timoh de Solarys.")
    
     await interaction.response.send_message(embed=embed)
 
@@ -377,6 +383,8 @@ async def leaderboardfn(interaction: discord.Interaction, max_id: int = 5):
             lolLeaderboard[msg["author_id"]] = msg["lol"]
         else:
             lolLeaderboard[msg["author_id"]] = lolLeaderboard[msg["author_id"]] + msg["lol"]
+        if message_id_pos >= len(msg["servers_published"]):
+            continue
         message = channel.get_partial_message(msg["messages_published"][message_id_pos])
         likesLeaderboard_msg[message.jump_url] = msg["likes"]
         lolLeaderboard_msg[message.jump_url] = msg["lol"]
@@ -459,6 +467,8 @@ async def leaderboardfn(interaction: discord.Interaction, max_id: int = 5):
     
             posidx += 1
 
+    embed.set_footer(text="Pour avoir le leaderboard de tous les messages jamais envoyés, allez à Solarys")
+
     await interaction.edit_original_response(content="", embed=embed)
 
 @bot.tree.command(name="edit_message", description="Modifie un message Genoze.")
@@ -501,7 +511,8 @@ async def edit_message(interaction: discord.Interaction, message_id: str):
             server = bot.get_guild(messages_list[message_idx]["servers_published"][0]) or await bot.fetch_guild(messages_list[message_idx]["servers_published"][0])
             channel = server.get_channel(channel_list[messages_list[message_idx]["servers_published"][0]]) or await server.fetch_channel(channel_list[messages_list[message_idx]["servers_published"][0]])
             msg = await channel.fetch_message(messages_list[message_idx]["messages_published"][0])
-            content = msg.embeds[0].description.split("---\n")[1]
+            contents = msg.embeds[0].description.split("---\n")
+            content = contents[len(contents) - 1]
             await interaction.response.send_modal(Edit(custom_id=str(mid), content=content))
 
 @bot.tree.command(name="delete_message", description="Supprime un message Genoze.")
