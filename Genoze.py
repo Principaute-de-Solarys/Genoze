@@ -18,10 +18,13 @@ import json
 import datetime
 import aiofiles
 import validators
+import aiohttp
 from discord import app_commands, ui
 from discord.ext import commands, tasks
 from dateutil import tz
 from random import randint
+from dotenv import load_dotenv
+load_dotenv()
 
 intents = discord.Intents.default()
 intents.messages = True
@@ -41,6 +44,8 @@ virtual_ids_idx = 9999999999999999999
 
 facts = []
 curFact = -1
+
+klipy_api_key = os.getenv("KLIPY_API_TOKEN")
 
 bot_id = 1479885378985918515
 
@@ -327,7 +332,7 @@ async def help(interaction: discord.Interaction):
     embed.add_field(name="[MEMBRE COMPTE VIRTUEL/ADMIN SERV] /add_va_member user:[L'utilisateur à ajouter] virtual_id:[L'identifiant du compte virtuel]", value="Ajoute un membre au compte virtuel.", inline=False)
     embed.add_field(name="[MEMBRE COMPTE VIRTUEL/ADMIN SERV] /remove_va_member user:[L'utilisateur à retirer] virtual_id:[L'identifiant du compte virtuel]", value="Retire un membre au compte virtuel.", inline=False)
    
-    embed.set_footer(text="Version : 0.4.1\nSi vous voulez contribuer au développement de Genoze, contactez Timoh de Solarys.")
+    embed.set_footer(text="Version : 0.4.2\nSi vous voulez contribuer au développement de Genoze, contactez Timoh de Solarys.")
    
     await interaction.response.send_message(embed=embed)
 
@@ -998,6 +1003,28 @@ async def messagefn(message: discord.Message, author: dict):
                 embed.add_field(name=i.filename, value=i.url, inline=False)
         elif author["id"] <= 9999999999999999999:
             await message.delete()
+        if message.content.startswith("https://klipy.com/gifs/"):
+            slugs = message.content.strip("/").split("/")[-1]
+            klipy_api_url = f"https://api.klipy.com/api/v1/{klipy_api_key}/gifs/items?slugs={slugs}"
+
+            async with aiohttp.ClientSession() as session:
+                async with session.get(klipy_api_url) as response:
+                    if response.status == 200:
+                        headers = response.headers
+                        remaining = headers.get("x-ratelimit-remaining")
+                        remainingText = ""
+                        data = await response.json()
+                        try:
+                            gif_url = data["data"]["data"][0]["file"]["hd"]["gif"]["url"]
+                            embed.set_image(url=gif_url)
+                            if remaining:
+                                remainingText = f"\n-# Malheureusement, Genoze est limité par Klipy, il reste {remaining}/100 requêtes disponibles pour cette heure."
+                            embed.description = f"-# *{author['name']} ({author['id']})*\n---\n{remainingText}"
+                        except:
+                            pass
+        elif message.content.endswith(".gif"):
+            embed.set_image(url=message.content)
+            embed.description = f"-# *{author['name']} ({author['id']})*\n---\n"
         embed.add_field(name="Likes", value="0", inline=True)
         embed.add_field(name="Lol", value="0", inline=True)
         needCheck = False
@@ -1159,6 +1186,6 @@ async def on_raw_reaction_add(payLoad: discord.RawReactionActionEvent):
 async def on_raw_reaction_remove(payLoad: discord.RawReactionActionEvent):
     await update_message_reactions(payLoad, -1)
 
-token = str(os.getenv("TWEET_TOKEN"))
+token = os.getenv("TWEET_TOKEN")
 
 bot.run(token)
